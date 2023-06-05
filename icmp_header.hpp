@@ -68,9 +68,9 @@ namespace pingloop
     }
 
   private:
-    unsigned short decode(int a, int b) const
+    ushort decode(int a, int b) const
     {
-      return (rep_[a] << 8) + rep_[b];
+      return (ushort)((rep_[a] << 8) + rep_[b]);
     }
 
     void encode(int a, int b, unsigned short n)
@@ -104,7 +104,7 @@ namespace pingloop
   class icmp_echo_header : public icmp_header
   {
   public:
-    icmp_echo_header(int id, int sequence_number, const char* data, int length)
+    icmp_echo_header(ushort id, ushort sequence_number, const char* data, ushort length)
     {
       this->type(icmp_header::echo_request);
       this->code(0);

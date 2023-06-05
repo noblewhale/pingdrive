@@ -3,8 +3,18 @@
 
 #include <cstddef>
 
+// save diagnostic state
+#pragma GCC diagnostic push 
+
+// turn off the specific warning. Can also use "-Wall"
+#pragma GCC diagnostic ignored "-Wconversion"
+
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+
+// turn the warnings back on
+#pragma GCC diagnostic pop
+
 #include <iostream>
 
 namespace pingloop

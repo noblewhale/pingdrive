@@ -93,9 +93,9 @@ public:
   }
 
 private:
-  unsigned short decode(int a, int b) const
+  ushort decode(int a, int b) const
   {
-    return (rep_[a] << 8) + rep_[b];
+    return (ushort)((rep_[a] << 8) + rep_[b]);
   }
 
   unsigned char rep_[60];

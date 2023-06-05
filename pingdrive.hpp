@@ -75,20 +75,24 @@ namespace pingloop
     {
       (void)fi;
 
+      if (offset < 0) return -1;
+
+      size_t positive_offset = (size_t)offset;
+
       if (strcmp(path + 1, "index.html") != 0) return -ENOENT;
 
       std::cout << "Start read size " << size << " offset " << offset << std::endl;
 
       size_t len = p->get_size();
 
-      if (offset < len)
+      if (positive_offset < len)
       {
-        if (offset + size > len)
+        if (positive_offset + size > len)
         {
-          size = len - offset;
+          size = len - positive_offset;
         }
 
-        size = p->read_from_loop(buf, offset, size);
+        size = p->read_from_loop(buf, positive_offset, size);
       }
       else
       {
@@ -97,7 +101,7 @@ namespace pingloop
 
       std::cout << "End read size " << size << std::endl;
 
-      return size;
+      return (int)size;
     }
 
     int write_to_file(const char* path, const char* buff, size_t size, off_t offset, struct fuse_file_info* fi)
@@ -108,7 +112,7 @@ namespace pingloop
 
       std::cout << "Start write size " << size << " offset " << offset << std::endl;
 
-      return p->write_to_loop(buff, offset, size);;
+      return (int)p->write_to_loop(buff, offset, size);
     }
 
     static const struct fuse_operations operations = {

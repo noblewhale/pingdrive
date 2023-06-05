@@ -45,7 +45,7 @@ namespace pingloop
     {
       std::cout << "Write bytes " << length << " starting at " << position << std::endl;
 
-      for (int offset = 0; offset < length; offset += write_op.length)
+      for (size_t offset = 0; offset < length; offset += write_op.length)
       {
         std::unique_lock<std::mutex> lk(write_op.lock);
 
@@ -54,7 +54,7 @@ namespace pingloop
         if (write_op.sequenceNumber > maxSequenceNumber)
         {
           maxSequenceNumber = write_op.sequenceNumber;
-          send_to_loop_nodes(distr(gen), write_op.sequenceNumber, write_op.buffer, write_op.length);
+          send_to_loop_nodes((ushort)distr(gen), write_op.sequenceNumber, write_op.buffer, write_op.length);
         }
         else
         {
@@ -67,11 +67,11 @@ namespace pingloop
       return length;
     }
 
-    int read_from_loop(char* output, size_t position, size_t length)
+    size_t read_from_loop(char* output, size_t position, size_t length)
     {
       std::cout << "Read bytes " << length << " starting at " << position << std::endl;
 
-      for (int offset = 0; offset < length; offset += read_op.length)
+      for (size_t offset = 0; offset < length; offset += read_op.length)
       {
         std::unique_lock<std::mutex> lk(read_op.lock);
 
@@ -91,7 +91,7 @@ namespace pingloop
       ipMap.push_back(ipList);
 
       auto smallestList = *std::min_element(ipMap.begin(), ipMap.end(), [](auto a, auto b) { return a.size() < b.size(); });
-      distr = std::uniform_int_distribution<>(0, smallestList.size() - 1);
+      distr = std::uniform_int_distribution<>(0, (int)smallestList.size() - 1);
     }
 
     void start_receive_loop()
@@ -99,18 +99,18 @@ namespace pingloop
       while (true) receive();
     }
 
-    int get_size()
+    size_t get_size()
     {
       return this->size;
     }
 
   private:
 
-    void send_to_loop_nodes(int loop_index, int sequence_number, const char* data, int length)
+    void send_to_loop_nodes(ushort loop_index, ushort sequence_number, const char* data, ushort length)
     {
       expected_replies.push_back({ loop_index, sequence_number });
 
-      for (int i = 0; i < ipMap.size(); i++)
+      for (size_t i = 0; i < ipMap.size(); i++)
       {
         // Get the address to send to
         address_v4 address = ipMap[i][loop_index];
@@ -136,7 +136,7 @@ namespace pingloop
     {
       // Discard any data already in the buffer.
       reply_buffer.consume(reply_buffer.size());
-      size_t length = socket.receive(reply_buffer.prepare(DATA_LENGTH * 2));
+      ushort length = (ushort)socket.receive(reply_buffer.prepare(DATA_LENGTH * 2));
 
       // The actual number of bytes received is committed to the buffer so that we can extract it using a std::istream object.
       reply_buffer.commit(length);
@@ -146,13 +146,13 @@ namespace pingloop
       ipv4_header ipv4_hdr;
       icmp_header icmp_hdr;
       is >> ipv4_hdr >> icmp_hdr;
-      ushort dataLength = length - ipv4_hdr.header_length() - 8;
+      ushort dataLength = (ushort)(length - ipv4_hdr.header_length() - 8);
       is.read(receivedData, dataLength);
 
       if (is && icmp_hdr.type() == icmp_header::echo_reply)
       {
-        int sequence_number = icmp_hdr.sequence_number();
-        int id = icmp_hdr.identifier();
+        ushort sequence_number = icmp_hdr.sequence_number();
+        ushort id = icmp_hdr.identifier();
         auto resultIterator = std::find(expected_replies.begin(), expected_replies.end(), expected_reply(id, sequence_number));
         if (resultIterator != expected_replies.end())
         {
@@ -163,15 +163,15 @@ namespace pingloop
           ushort writeLength = do_operation(write_op, sequence_number, write_op.buffer, receivedData + write_op.sequenceByteIndex);
           do_operation(read_op, sequence_number, receivedData + read_op.sequenceByteIndex, read_op.buffer);
 
-          send_to_loop_nodes(distr(gen), sequence_number, receivedData, std::max(dataLength, writeLength));
+          send_to_loop_nodes((ushort)distr(gen), sequence_number, receivedData, (ushort)std::max(dataLength, writeLength));
         }
       }
     }
 
-    int do_operation(drive_operation& op, int sequence_number, const char* in_buffer, char* out_buffer)
+    ushort do_operation(drive_operation& op, int sequence_number, const char* in_buffer, char* out_buffer)
     {
       bool didOperation = false;
-      int length = 0;
+      ushort length = 0;
       {
         // Lock operation so we can check if it is pending
         std::lock_guard<std::mutex> sequenceLock(op.lock);
@@ -186,7 +186,7 @@ namespace pingloop
           op.isPending = false;
           // Keep track of the fact that an operation was performed so we know to notify after unlocking
           didOperation = true;
-          length = op.sequenceByteIndex + op.length;
+          length = (ushort)(op.sequenceByteIndex + op.length);
         }
       } // Unlock the operation
 

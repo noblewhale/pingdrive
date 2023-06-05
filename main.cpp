@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
 
   pingloop::p->write_to_loop("test test2", 0, 10);
 
-  int ret = fuse_main(argc, argv, &pingloop::drive::operations, NULL);
+  fuse_main(argc, argv, &pingloop::drive::operations, NULL);
 
   run_thread.join();
 

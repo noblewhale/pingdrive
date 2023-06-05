@@ -20,10 +20,10 @@ namespace pingloop
 
     void prepare(size_t position, size_t length)
     {
-      this->sequenceNumber = position / DATA_LENGTH;
-      this->sequenceByteIndex = position % DATA_LENGTH;
+      this->sequenceNumber = (ushort)(position / DATA_LENGTH);
+      this->sequenceByteIndex = (ushort)(position % DATA_LENGTH);
 
-      size_t endSequenceByteIndex = std::min(this->sequenceByteIndex + length, DATA_LENGTH);
+      ushort endSequenceByteIndex = (ushort)std::min(this->sequenceByteIndex + length, DATA_LENGTH);
       this->length = endSequenceByteIndex - this->sequenceByteIndex;
     }
 
