@@ -11,22 +11,19 @@
 
 int main(int argc, char* argv[])
 {
-  boost::asio::io_service io_service;
-  pingloop::p = new pingloop::pinger(io_service);
-
   for (int i = 1; i <= 5; i++)
   {
     std::ifstream ipListFile("IPs-" + std::to_string(i) + ".txt");
-    pingloop::p->populate_map(ipListFile);
+    pingloop::p.populate_map(ipListFile);
   }
 
-  std::thread run_thread([&] { pingloop::p->start_receive_loop(); });
-
-  pingloop::p->write_to_loop("test test2", 0, 10);
+  std::thread run_thread([&] { pingloop::p.start_receive_loop(); });
 
   fuse_main(argc, argv, &pingloop::drive::operations, NULL);
 
+  pingloop::p.stop_receive_loop();
+
   run_thread.join();
 
-  delete pingloop::p;
+  pingloop::drive::clean_up();
 }

@@ -94,8 +94,8 @@
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(RemoteRootDir)/../fuse/build/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <LibraryDependencies>fuse3</LibraryDependencies>
+      <AdditionalLibraryDirectories>$(RemoteRootDir)/../fuse/build/lib;%(AdditionalLibraryDirectories);/usr/local/lib/</AdditionalLibraryDirectories>
+      <LibraryDependencies>fuse3;boost_filesystem</LibraryDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

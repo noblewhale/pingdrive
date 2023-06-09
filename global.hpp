@@ -11,6 +11,9 @@
 
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/path_traits.hpp>
 
 // turn the warnings back on
 #pragma GCC diagnostic pop
@@ -27,7 +30,11 @@ namespace pingloop
   using ip::address_v4;
   using boost::asio::streambuf;
   using std::vector;
+  using std::string;
   using std::tuple;
+
+  template <typename K, typename V>
+  using map = std::unordered_map<K, V>;
 }
 
 #endif

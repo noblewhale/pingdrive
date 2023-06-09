@@ -83,10 +83,15 @@ namespace pingloop
   };
 
   template <typename Iterator>
-  void compute_checksum(icmp_header& header, Iterator body_begin, Iterator body_end)
+  void compute_checksum(icmp_header& header, const int file_id, Iterator body_begin, Iterator body_end)
   {
-    unsigned int sum = (header.type() << 8) + header.code()
-      + header.identifier() + header.sequence_number();
+    unsigned int sum = (header.type() << 8) + header.code() + header.identifier() + header.sequence_number();
+
+    Iterator intIterator = (const char*)&file_id;
+    sum += (static_cast<unsigned char>(*intIterator++) << 8);
+    sum += static_cast<unsigned char>(*intIterator++);
+    sum += (static_cast<unsigned char>(*intIterator++) << 8);
+    sum += static_cast<unsigned char>(*intIterator++);
 
     Iterator body_iter = body_begin;
     while (body_iter != body_end)
@@ -104,7 +109,7 @@ namespace pingloop
   class icmp_echo_header : public icmp_header
   {
   public:
-    icmp_echo_header(ushort id, ushort sequence_number, const char* data, ushort length)
+    icmp_echo_header(int file_id, ushort id, ushort sequence_number, const char* data, ushort length)
     {
       this->type(icmp_header::echo_request);
       this->code(0);
@@ -112,7 +117,7 @@ namespace pingloop
       this->sequence_number(sequence_number);
 
       // Compute checksum, including header and data
-      compute_checksum(*this, data, data + length);
+      compute_checksum(*this, file_id, data, data + length);
     }
 
     friend std::istream& operator>>(std::istream& is, icmp_echo_header& header)

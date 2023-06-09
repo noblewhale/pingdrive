@@ -16,12 +16,14 @@ namespace pingloop
     ushort sequenceByteIndex = -1;
     std::condition_variable condition;
     std::mutex lock;
+    size_t file_id = -1;
     ushort length = 0;
 
-    void prepare(size_t position, size_t length)
+    void prepare(size_t file_id, size_t position, size_t length)
     {
       this->sequenceNumber = (ushort)(position / DATA_LENGTH);
       this->sequenceByteIndex = (ushort)(position % DATA_LENGTH);
+      this->file_id = file_id;
 
       ushort endSequenceByteIndex = (ushort)std::min(this->sequenceByteIndex + length, DATA_LENGTH);
       this->length = endSequenceByteIndex - this->sequenceByteIndex;
@@ -40,9 +42,9 @@ namespace pingloop
   {
     char* buffer = nullptr;
 
-    void prepare(size_t position, size_t length, char* buffer)
+    void prepare(size_t file_id, size_t position, size_t length, char* buffer)
     {
-      drive_operation::prepare(position, length);
+      drive_operation::prepare(file_id, position, length);
       this->buffer = buffer;
     }
   };
@@ -51,9 +53,9 @@ namespace pingloop
   {
     const char* buffer = nullptr;
 
-    void prepare(size_t position, size_t length, const char* buffer)
+    void prepare(size_t file_id, size_t position, size_t length, const char* buffer)
     {
-      drive_operation::prepare(position, length);
+      drive_operation::prepare(file_id, position, length);
       this->buffer = buffer;
     }
   };

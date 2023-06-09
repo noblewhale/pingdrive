@@ -28,10 +28,9 @@ namespace pingloop
     char receivedData[DATA_LENGTH];
     icmp::endpoint endpoint;
 
-    int maxSequenceNumber = -1;
-
-    size_t size = 0;
     vector<vector<address_v4>> ipMap;
+
+    bool is_receive_loop_running = false;
 
   public:
 
@@ -41,42 +40,43 @@ namespace pingloop
       gen = std::mt19937(rd()); // seed the generator
     }
 
-    size_t write_to_loop(const char* input, size_t position, size_t length)
+    size_t write_to_loop(const char* input, int file_id, size_t position, size_t length, size_t current_length)
     {
-      std::cout << "Write bytes " << length << " starting at " << position << std::endl;
+      //std::cout << "Write bytes " << length << " starting at " << position << std::endl;
 
       for (size_t offset = 0; offset < length; offset += write_op.length)
       {
         std::unique_lock<std::mutex> lk(write_op.lock);
 
-        write_op.prepare(position + offset, length - offset, input + offset);
+        write_op.prepare(file_id, position + offset, length - offset, input + offset);
 
-        if (write_op.sequenceNumber > maxSequenceNumber)
+        //std::cout << "seq " << write_op.sequenceNumber << " " << current_length << " " << std::ceil((double)current_length / DATA_LENGTH) << std::endl;
+
+        if (write_op.sequenceNumber >= std::ceil((double)current_length / DATA_LENGTH))
         {
-          maxSequenceNumber = write_op.sequenceNumber;
-          send_to_loop_nodes((ushort)distr(gen), write_op.sequenceNumber, write_op.buffer, write_op.length);
+          send_to_loop_nodes((ushort)distr(gen), file_id, write_op.sequenceNumber, write_op.buffer, write_op.length);
         }
         else
         {
           write_op.wait_for_pending(lk);
         }
-      }
 
-      size = std::max(size, position + length);
+        current_length = std::max(current_length, position + offset + write_op.length);
+      }
 
       return length;
     }
 
-    size_t read_from_loop(char* output, size_t position, size_t length)
+    size_t read_from_loop(char* output, size_t file_id, size_t position, size_t length)
     {
-      std::cout << "Read bytes " << length << " starting at " << position << std::endl;
+      //std::cout << "Read bytes " << length << " starting at " << position << std::endl;
 
       for (size_t offset = 0; offset < length; offset += read_op.length)
       {
         std::unique_lock<std::mutex> lk(read_op.lock);
 
         char* buffer = output + offset;
-        read_op.prepare(position + offset, length - offset, buffer);
+        read_op.prepare(file_id, position + offset, length - offset, buffer);
         read_op.wait_for_pending(lk);
       }
 
@@ -96,19 +96,20 @@ namespace pingloop
 
     void start_receive_loop()
     {
-      while (true) receive();
+      is_receive_loop_running = true;
+      while (is_receive_loop_running) receive();
     }
 
-    size_t get_size()
+    void stop_receive_loop()
     {
-      return this->size;
+      is_receive_loop_running = false;
     }
 
   private:
 
-    void send_to_loop_nodes(ushort loop_index, ushort sequence_number, const char* data, ushort length)
+    void send_to_loop_nodes(ushort loop_index, int file_id, ushort sequence_number, const char* data, ushort length)
     {
-      expected_replies.push_back({ loop_index, sequence_number });
+      expected_replies.push_back({ file_id, loop_index, sequence_number });
 
       for (size_t i = 0; i < ipMap.size(); i++)
       {
@@ -117,14 +118,17 @@ namespace pingloop
         endpoint.address(address);
 
         // Create an ICMP header for an echo request.
-        icmp_echo_header echo_request(loop_index, sequence_number, data, length);
+        icmp_echo_header echo_request(file_id, loop_index, sequence_number, data, length);
 
         // Stream header and data to request buffer
         std::ostream os(&request_buffer);
+        const char* file_id_chars = (const char*)&file_id;
         os << echo_request;
+        os.write(file_id_chars, sizeof(int));
         os.write(data, length);
         
         // Send the request.
+        //std::cout << "SENDING FOR REAL\n";
         size_t num_bytes_sent = socket.send_to(request_buffer.data(), endpoint);
 
         // Clear the request buffer so it is ready to be used again
@@ -134,10 +138,11 @@ namespace pingloop
 
     void receive()
     {
+      //std::cout << "Wait to Receive" << std::endl;
       // Discard any data already in the buffer.
       reply_buffer.consume(reply_buffer.size());
       ushort length = (ushort)socket.receive(reply_buffer.prepare(DATA_LENGTH * 2));
-
+      //std::cout << "Receive" << std::endl;
       // The actual number of bytes received is committed to the buffer so that we can extract it using a std::istream object.
       reply_buffer.commit(length);
 
@@ -146,29 +151,33 @@ namespace pingloop
       ipv4_header ipv4_hdr;
       icmp_header icmp_hdr;
       is >> ipv4_hdr >> icmp_hdr;
-      ushort dataLength = (ushort)(length - ipv4_hdr.header_length() - 8);
+      char file_id_chars[sizeof(int)];
+      is.read(file_id_chars, sizeof(int));
+      int file_id = *(int*)file_id_chars;
+      ushort dataLength = (ushort)(length - ipv4_hdr.header_length() - 8 - sizeof(int));
       is.read(receivedData, dataLength);
 
       if (is && icmp_hdr.type() == icmp_header::echo_reply)
       {
         ushort sequence_number = icmp_hdr.sequence_number();
         ushort id = icmp_hdr.identifier();
-        auto resultIterator = std::find(expected_replies.begin(), expected_replies.end(), expected_reply(id, sequence_number));
+        //std::cout << "Received: file " << file_id << " seq " << sequence_number << " id " << id << "length " << dataLength << std::endl;
+        auto resultIterator = std::find(expected_replies.begin(), expected_replies.end(), expected_reply(file_id, id, sequence_number));
         if (resultIterator != expected_replies.end())
         {
-          //const char* data = receivedData;
-          //std::cout << "Received " << *(data) << *(data + 1) << *(data + 2) << *(data + 3) << *(data + 4) << *(data + 5) << *(data + 6) << *(data + 7) << *(data + 8) << *(data + 9) << std::endl;
+          const char* data = receivedData;
+          //std::cout << "Received data " << *(data) << *(data + 1) << *(data + 2) << *(data + 3) << *(data + 4) << *(data + 5) << *(data + 6) << *(data + 7) << *(data + 8) << *(data + 9) << std::endl;
           expected_replies.erase(resultIterator);
 
-          ushort writeLength = do_operation(write_op, sequence_number, write_op.buffer, receivedData + write_op.sequenceByteIndex);
-          do_operation(read_op, sequence_number, receivedData + read_op.sequenceByteIndex, read_op.buffer);
+          ushort writeLength = do_operation(write_op, file_id, sequence_number, write_op.buffer, receivedData + write_op.sequenceByteIndex);
+          do_operation(read_op, file_id, sequence_number, receivedData + read_op.sequenceByteIndex, read_op.buffer);
 
-          send_to_loop_nodes((ushort)distr(gen), sequence_number, receivedData, (ushort)std::max(dataLength, writeLength));
+          send_to_loop_nodes((ushort)distr(gen), file_id, sequence_number, receivedData, (ushort)std::max(dataLength, writeLength));
         }
       }
     }
 
-    ushort do_operation(drive_operation& op, int sequence_number, const char* in_buffer, char* out_buffer)
+    ushort do_operation(drive_operation& op, int file_id, int sequence_number, const char* in_buffer, char* out_buffer)
     {
       bool didOperation = false;
       ushort length = 0;
@@ -176,7 +185,7 @@ namespace pingloop
         // Lock operation so we can check if it is pending
         std::lock_guard<std::mutex> sequenceLock(op.lock);
         // Check for pending operation on this sequence
-        if (op.isPending && op.sequenceNumber == sequence_number)
+        if (op.isPending && op.file_id == file_id && op.sequenceNumber == sequence_number)
         {
           // Operation requested on this sequence, carry it out. It could be either:
           //  read_operation: A read from the receive buffer and a write to some out buffer
@@ -200,7 +209,9 @@ namespace pingloop
     }
   };
 
-  pinger* p;
+
+  boost::asio::io_service io_service;
+  pinger p(io_service);
 }
 
 #endif
