@@ -1,5 +1,8 @@
 #ifndef EXPECTED_REPLY_HEADER_HPP
 #define EXPECTED_REPLY_HEADER_HPP
+
+#include <boost/asio.hpp>
+
 namespace pingloop
 {
   struct expected_reply
@@ -7,6 +10,14 @@ namespace pingloop
     int file_id;
     int loop_index;
     int sequence_number;
+    bool needs_resend = true;
+
+    std::unordered_map<address_v4, boost::asio::deadline_timer*> sub_replies;
+
+    expected_reply()
+    {
+
+    }
 
     expected_reply(int file_id, int loop_index, int sequence_number) : file_id(file_id), loop_index(loop_index), sequence_number(sequence_number)
     {

@@ -106,7 +106,7 @@ namespace pingloop::drive
       return -ENOENT;
     }
 
-    std::cout << "found file " << file->file_id << " is dir " << file->is_dir << std::endl;
+    std::cout << "found file " << file->file_id << " is dir " << file->is_dir << " size " << file->size << std::endl;
 
     get_attribute(file, stbuf);
 
@@ -222,6 +222,7 @@ namespace pingloop::drive
 
     size_t positive_offset = (size_t)offset;
 
+    size = std::min(size, file->size - positive_offset);
     std::cout << "Start read size " << size << " offset " << offset << std::endl;
 
     size_t len = file->size;

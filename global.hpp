@@ -14,6 +14,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/path_traits.hpp>
+#include <boost/iterator/filter_iterator.hpp> 
+#include <boost/range/iterator_range.hpp>
 
 // turn the warnings back on
 #pragma GCC diagnostic pop
@@ -22,7 +24,7 @@
 
 namespace pingloop
 {
-  static const size_t DATA_LENGTH = 1024;
+  static const size_t DATA_LENGTH = 2048;
   static const unsigned char EMPTY_BYTES[DATA_LENGTH] = { 0 };
 
   namespace ip = boost::asio::ip;
